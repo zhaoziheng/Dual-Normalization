@@ -19,11 +19,11 @@ from torch.utils.data import DataLoader
 
 
 parser = argparse.ArgumentParser('Dual Normalization U-Net Training')
-parser.add_argument('--data_dir', type=str, default='./data/brats/npz_data')
-parser.add_argument('--train_domain_list_1', nargs='+')
-parser.add_argument('--train_domain_list_2', nargs='+')
-parser.add_argument('--result_dir', type=str, default='./results/unet_dn')
-parser.add_argument('--n_classes', type=int, default=2)
+parser.add_argument('--data_dir', type=str, default='/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/CHAOS_T2SPIR')
+parser.add_argument('--train_domain_list_1', default='ss', nargs='+')
+parser.add_argument('--train_domain_list_2', default='sd', nargs='+')
+parser.add_argument('--result_dir', type=str, default='/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/results/unet_dn')
+parser.add_argument('--n_classes', type=int, default=4)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--n_epochs', type=int, default=50)
 parser.add_argument('--save_step', type=int, default=10)

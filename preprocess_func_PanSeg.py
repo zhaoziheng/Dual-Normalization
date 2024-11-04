@@ -463,151 +463,91 @@ def resize_with_padding(slice, target_size=512, nearest_mode=True):
     return resized    
 
 
-def save_test_npz(json_file, target_root, reorient=True):
+def save_test_npz(modality='T2'):
     
-    loader = Loader_Wrapper()
-    name_mapper = Name_Mapper()
-    
-    with open(json_file, 'r') as f:
-        lines = f.readlines()
-        data = [json.loads(line) for line in lines]
+    with open(f'/mnt/hwfile/medai/wuhaoning/MRDiffusion_PNG/PanSeg_{modality}_test.json', 'r') as f:
+        test_data = json.load(f)
 
-    for datum in tqdm(data):
+    target_root = f'/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/PanSeg_' + modality
+
+    if not os.path.exists(os.path.join(target_root, 'test')):
+        os.makedirs(os.path.join(target_root, 'test'))
+
+    for datum_dict in test_data:
+        image_path = datum_dict['image_path']   # xxxx/AHN_0004_0000_0.png
+        volume_id, slice_id = image_path.split('/')[-1].split('_0000_')
+        slice_id = slice_id.replace('.png', '')
+        volume_id = modality.lower()+'_'+volume_id
         
-        func_name = datum['dataset']
-        batch = getattr(loader, func_name)(datum)
-        slices, masks, text_ls, _, image_path, _ = batch
-        slices = slices.numpy()
-        masks = masks.numpy()
+        # process image
         
-        # counter-clock 90 degree and flip horizontally
-        slices = np.rot90(slices, axes=(1, 2))
-        slices = np.flip(slices, axis=2)
-        masks = np.rot90(masks, axes=(1, 2))
-        masks = np.flip(masks, axis=2)
+        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        image = norm(image) 
+        image = resize_with_padding(image, target_size=512, nearest_mode=False)
         
-        # nib_img = nib.load(datum['image'])
-        # nib_mask = nib.load(datum['mask'])
-
-        # affine = nib_img.affine.copy()
+        # process mask
         
-        # slices = nib_img.get_fdata()
-        # masks = nib_mask.get_fdata()
-        # masks[masks != 0] = 1
+        mask_path = datum_dict['mask0_path']   # xxxx/AHN_0004_0000_0.png
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+        mask = resize_with_padding(mask, target_size=512, nearest_mode=True)
+        mask = np.where(mask>0, 1, 0)
         
-        # convert mc mask into sc mask
-        sc_mask = []
-        for i, label in enumerate(text_ls):    # 0, kidney ...
-            tmp = masks[i, :, :, :] * (i+1)   # --> 1
-            sc_mask.append(tmp)
-        sc_mask = np.stack(sc_mask, axis=0)   # (N, H, W, D)
-        sc_mask = np.max(sc_mask, axis=0)   # H W D
-        masks = sc_mask
+        save_img(image, mask, os.path.join(target_root, 'test', f'{volume_id}_s{slice_id}.npz'))
 
-        # normalize image
-        slices = slices[0]
-        slices = norm(slices)
 
-        if not os.path.exists(os.path.join(target_root, 'test')):
-            os.makedirs(os.path.join(target_root, 'test'))
-            
-        image_name = getattr(name_mapper, datum['dataset'])(datum['image'])
+def prepare_train(modality='T2'):
+
+    with open(f'/mnt/hwfile/medai/wuhaoning/MRDiffusion_PNG/PanSeg_{modality}_train.json', 'r') as f:
+        train_data = json.load(f)
         
-        for i in range(slices.shape[2]):
-            tmp_slice = slices[:, :, i]
-            tmp_slice = resize_with_padding(tmp_slice, 512, nearest_mode=False)
-            
-            tmp_mask = masks[:, :, i]
-            tmp_mask = resize_with_padding(tmp_mask, 512, nearest_mode=True)
-            
-            save_img(tmp_slice, tmp_mask, os.path.join(target_root, 'test', f'{image_name}_s{i}.npz'))
-
-
-def prepare_train(json_file, target_root):
-
-    loader = Loader_Wrapper()
-    name_mapper = Name_Mapper()
-    
-    with open(json_file, 'r') as f:
-        lines = f.readlines()
-        data = [json.loads(line) for line in lines]
+    target_root = f'/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/PanSeg_' + modality
         
     if not os.path.exists(os.path.join(target_root, 'train/ss')):
         os.makedirs(os.path.join(target_root, 'train/ss'))
     if not os.path.exists(os.path.join(target_root, 'train/sd')):
         os.makedirs(os.path.join(target_root, 'train/sd'))
-
-    for datum in tqdm(data):
-        
-        func_name = datum['dataset']
-        batch = getattr(loader, func_name)(datum)
-        slices, masks, text_ls, _, image_path, _ = batch
-        slices = slices.numpy()
-        masks = masks.numpy()
-        
-        # counter-clock 90 degree and flip horizontally
-        slices = np.rot90(slices, axes=(1, 2))
-        slices = np.flip(slices, axis=2)
-        masks = np.rot90(masks, axes=(1, 2))
-        masks = np.flip(masks, axis=2)
-        
-        # nib_img = nib.load(datum['image'])
-        # nib_mask = nib.load(datum['mask'])
-
-        # affine = nib_img.affine.copy()
-        
-        # slices = nib_img.get_fdata()
-        # masks = nib_mask.get_fdata()
-        # masks[masks != 0] = 1
-        
-        # convert mc mask into sc mask
-        sc_mask = []
-        for i, label in enumerate(text_ls):    # 0, kidney ...
-            tmp = masks[i, :, :, :] * (i+1)   # --> 1
-            sc_mask.append(tmp)
-        sc_mask = np.stack(sc_mask, axis=0)   # (N, H, W, D)
-        sc_mask = np.max(sc_mask, axis=0)   # H W D
-        masks = sc_mask
-
-        # normalize image
-        slices = slices[0]
-        slices = norm(slices)
-        
-        slices, nonlinear_slices_1 = nonlinear_transformation(slices)
             
-        image_name = getattr(name_mapper, datum['dataset'])(datum['image'])
-
-        for i in range(slices.shape[2]):
-            tmp_slice = slices[:, :, i]
-            tmp_slice = resize_with_padding(tmp_slice, 512, nearest_mode=False)
-            
-            tmp_nonlinear_slice = nonlinear_slices_1[:, :, i]
-            tmp_nonlinear_slice = resize_with_padding(tmp_nonlinear_slice, 512, nearest_mode=False)
-            
-            tmp_mask = masks[:, :, i]
-            tmp_mask = resize_with_padding(tmp_mask, 512, nearest_mode=True)
-            
-            """
-            Source-Similar
-            """
-            save_img(tmp_slice, tmp_mask, os.path.join(target_root, 'train/ss', f'{image_name}_s{i}.npz'))
-            """
-            Source-Dissimilar
-            """
-            save_img(tmp_nonlinear_slice, tmp_mask, os.path.join(target_root, 'train/sd', f'{image_name}_s{i}.npz'))
+    for datum_dict in train_data:
+        image_path = datum_dict['image_path']   # xxxx/AHN_0004_0000_0.png
+        volume_id, slice_id = image_path.split('/')[-1].split('_0000_')
+        slice_id = slice_id.replace('.png', '')
+        volume_id = modality.lower()+'_'+volume_id
+        
+        # process image
+        
+        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        image = norm(image) 
+        image, nonlinear_image = nonlinear_transformation(image)
+        image = resize_with_padding(image, target_size=512, nearest_mode=False)
+        nonlinear_image = resize_with_padding(nonlinear_image, target_size=512, nearest_mode=False)
+        
+        # process mask
+        
+        mask_path = datum_dict['mask0_path']   # xxxx/AHN_0004_0000_0.png
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+        mask = resize_with_padding(mask, target_size=512, nearest_mode=True)
+        mask = np.where(mask>0, 1, 0)
+        
+        """
+        Source-Similar
+        """
+        save_img(image, mask, os.path.join(target_root, 'train/ss', f'{volume_id}_s{slice_id}.npz')) # t2_MCF_0001_s16.npz
+        
+        """
+        Source-Dissimilar
+        """
+        save_img(nonlinear_image, mask, os.path.join(target_root, 'train/sd', f'{volume_id}_s{slice_id}.npz'))
 
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Compute Dice scores')
-    parser.add_argument('--train_jsonl', type=str, default='/mnt/hwfile/medai/zhaoziheng/SAM/MRDiffusion/trainsets/CHAOS_MRI/CHAOS_MRI_T2_SPIR.jsonl')
-    parser.add_argument('--test_jsonl', type=str, default='/mnt/hwfile/medai/zhaoziheng/SAM/MRDiffusion/testsets/CHAOS_MRI/CHAOS_MRI_T2_SPIR.jsonl')
-    parser.add_argument('--target_root', type=str, default='/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/CHAOS_T2SPIR')
+    parser.add_argument('--modality', type=str)
     args = parser.parse_args()
 
-    prepare_train(args.train_jsonl, args.target_root)
+    prepare_train(args.modality)
 
-    save_test_npz(args.test_jsonl, args.target_root)
+    save_test_npz(args.modality)
         
     """
     CHAOS_T2

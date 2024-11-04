@@ -3,6 +3,7 @@ import random
 import torch
 import numpy as np
 from torch.utils.data import Dataset
+from tqdm import tqdm
 
 class Dataset(Dataset):
     def __init__(self, base_dir=None, split=None, domain_list=None, transforms=None):
@@ -29,7 +30,7 @@ class Dataset(Dataset):
 
     def __getitem__(self, index):
         image_dir = self.image_dir_list[index]
-        _, image_name = os.path.split(image_dir)
+        _, image_name = os.path.split(image_dir)    
         image = np.load(image_dir)['image'].astype(np.float32)
         label = np.load(image_dir)['label'].astype(np.int64)
 
@@ -37,12 +38,13 @@ class Dataset(Dataset):
             sample = {'image': image, 'label': label}
             if self.transforms:
                 sample = self.transforms(sample)
-
-            return sample, image_name.replace('.npz', '')
+            return sample, image_name.replace('.npz', '')   # MR_20_T1DUAL_DICOM_anon_OutPhase_601__s19
+        
         else:
             sample = {'image': image, 'label': label}
             if self.transforms:
                 sample = self.transforms(sample)
+                
             return sample
 
 class CenterCrop(object):
@@ -162,3 +164,23 @@ class ToTensor(object):
                     'onehot_label': torch.from_numpy(sample['onehot_label']).long()}
         else:
             return {'image': torch.from_numpy(image), 'label': torch.from_numpy(sample['label']).long()}
+
+if __name__ == '__main__':
+    import torchvision.transforms as tfs
+    
+    dataset = Dataset(
+        base_dir='/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/CHAOS_T2SPIR', 
+        split='train', 
+        domain_list='ss', 
+        transforms=tfs.Compose([
+            CreateOnehotLabel(num_classes=4),
+            ToTensor()
+            ])
+        )
+    
+    for i in tqdm(range(1000)):
+    
+        sample = dataset[i]
+        assert sample['image'].shape == torch.Size([1, 256, 256])
+        assert sample['label'].shape == torch.Size([256, 256])
+        print(np.unique(sample['label']))            
