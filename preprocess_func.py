@@ -10,6 +10,10 @@ from torchvision import transforms
 import monai
 from einops import rearrange, repeat, reduce
 import cv2
+import random
+import shutil
+
+import matplotlib.pyplot as plt
 
 class Loader_Wrapper():
     """
@@ -397,6 +401,7 @@ class Name_Mapper():
         target_img_filename = target_img_filename.replace('.nii.gz', '')    # im52
         return target_img_filename
 
+
 def resize_image_itk(itkimage, newSize, resamplemethod=sitk.sitkNearestNeighbor):
     resampler = sitk.ResampleImageFilter()
     originSize = itkimage.GetSize()
@@ -416,7 +421,15 @@ def resize_image_itk(itkimage, newSize, resamplemethod=sitk.sitkNearestNeighbor)
 def save_img(slice, label, dir):
     np.savez_compressed(dir, image=slice, label=label)
 
-def norm(slices):
+def norm(slices, modality):
+    
+    if modality == 'CT':
+        lower_bound, upper_bound = -500, 1000
+        slices = np.clip(slices, lower_bound, upper_bound)
+    else:
+        lower_bound, upper_bound = np.percentile(slices, 1), np.percentile(slices, 99)
+        slices = np.clip(slices, lower_bound, upper_bound)
+    
     max = np.max(slices)
     min = np.min(slices)
     slices = 2 * (slices - min) / (max - min) - 1
@@ -463,7 +476,7 @@ def resize_with_padding(slice, target_size=512, nearest_mode=True):
     return resized    
 
 
-def save_test_npz(json_file, target_root, reorient=True):
+def save_test_npz(json_file, target_root):
     
     loader = Loader_Wrapper()
     name_mapper = Name_Mapper()
@@ -471,6 +484,11 @@ def save_test_npz(json_file, target_root, reorient=True):
     with open(json_file, 'r') as f:
         lines = f.readlines()
         data = [json.loads(line) for line in lines]
+        
+    if 'AMOS22CT_CT' in json_file or 'MSD_Liver_CT' in json_file:
+        modality = 'CT'
+    else:
+        modality = 'MRI'
 
     for datum in tqdm(data):
         
@@ -506,7 +524,13 @@ def save_test_npz(json_file, target_root, reorient=True):
 
         # normalize image
         slices = slices[0]
-        slices = norm(slices)
+        slices = norm(slices, modality)
+        
+        # TODO: to calculate FID, wont use in training or testing
+        slices, nonlinear_slices_1 = nonlinear_transformation(slices)
+        if not os.path.exists(os.path.join(target_root, 'visual_all_sd')):
+            os.makedirs(os.path.join(target_root, 'visual_all_sd'))
+        # 
 
         if not os.path.exists(os.path.join(target_root, 'test')):
             os.makedirs(os.path.join(target_root, 'test'))
@@ -521,6 +545,15 @@ def save_test_npz(json_file, target_root, reorient=True):
             tmp_mask = resize_with_padding(tmp_mask, 512, nearest_mode=True)
             
             save_img(tmp_slice, tmp_mask, os.path.join(target_root, 'test', f'{image_name}_s{i}.npz'))
+            
+            # TODO: to calculate FID, wont use in training or testing
+            tmp_nonlinear_slice = nonlinear_slices_1[:, :, i]
+            tmp_nonlinear_slice = resize_with_padding(tmp_nonlinear_slice, 512, nearest_mode=False)
+            assert np.max(tmp_nonlinear_slice) <= 1 and np.min(tmp_nonlinear_slice) >= -1
+            visualize_nonlinear_slice = (tmp_nonlinear_slice + 1)/2 # [0,1]
+            visualize_nonlinear_slice = visualize_nonlinear_slice * 255
+            cv2.imwrite(os.path.join(target_root, 'visual_all_sd', f'{image_name}_s{i}_nonlinear.png'), visualize_nonlinear_slice)
+            # 
 
 
 def prepare_train(json_file, target_root):
@@ -532,10 +565,19 @@ def prepare_train(json_file, target_root):
         lines = f.readlines()
         data = [json.loads(line) for line in lines]
         
+    if 'AMOS22CT_CT' in json_file or 'MSD_Liver_CT' in json_file:
+        modality = 'CT'
+    else:
+        modality = 'MRI'
+        
     if not os.path.exists(os.path.join(target_root, 'train/ss')):
         os.makedirs(os.path.join(target_root, 'train/ss'))
     if not os.path.exists(os.path.join(target_root, 'train/sd')):
         os.makedirs(os.path.join(target_root, 'train/sd'))
+    if not os.path.exists(os.path.join(target_root, 'visual_all_sd')):
+        os.makedirs(os.path.join(target_root, 'visual_all_sd'))    
+    if not os.path.exists(os.path.join(target_root, 'visual_all_ss')):
+        os.makedirs(os.path.join(target_root, 'visual_all_ss'))    
 
     for datum in tqdm(data):
         
@@ -571,7 +613,7 @@ def prepare_train(json_file, target_root):
 
         # normalize image
         slices = slices[0]
-        slices = norm(slices)
+        slices = norm(slices, modality)
         
         slices, nonlinear_slices_1 = nonlinear_transformation(slices)
             
@@ -580,10 +622,23 @@ def prepare_train(json_file, target_root):
         for i in range(slices.shape[2]):
             tmp_slice = slices[:, :, i]
             tmp_slice = resize_with_padding(tmp_slice, 512, nearest_mode=False)
+            assert np.max(tmp_slice) <= 1 and np.min(tmp_slice) >= -1
             
             tmp_nonlinear_slice = nonlinear_slices_1[:, :, i]
             tmp_nonlinear_slice = resize_with_padding(tmp_nonlinear_slice, 512, nearest_mode=False)
-            
+            assert np.max(tmp_nonlinear_slice) <= 1 and np.min(tmp_nonlinear_slice) >= -1
+
+            if random.random() < 1:   # randomly visualization
+                
+                visualize_slice = (tmp_slice + 1)/2 # [0,1]
+                visualize_slice = visualize_slice * 255
+                cv2.imwrite(os.path.join(target_root, 'visual_all_ss', f'{image_name}_s{i}.png'), visualize_slice)
+
+                # Save tmp_nonlinear_slice
+                visualize_nonlinear_slice = (tmp_nonlinear_slice + 1)/2 # [0,1]
+                visualize_nonlinear_slice = visualize_nonlinear_slice * 255
+                cv2.imwrite(os.path.join(target_root, 'visual_all_sd', f'{image_name}_s{i}_nonlinear.png'), visualize_nonlinear_slice)
+                        
             tmp_mask = masks[:, :, i]
             tmp_mask = resize_with_padding(tmp_mask, 512, nearest_mode=True)
             
@@ -618,3 +673,4 @@ if __name__ == '__main__':
     └── test
         ├── test_sample0.npz, test_sample1.npz, xxx
     """
+        

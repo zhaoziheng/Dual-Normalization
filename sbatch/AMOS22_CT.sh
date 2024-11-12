@@ -1,70 +1,70 @@
 #!/bin/bash
 set -e
 
-# process and train
+# # process and train
 
-srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=0 --cpus-per-task=24 --mem-per-cpu=32G \
-python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/preprocess_func.py \
---train_jsonl '/mnt/hwfile/medai/zhaoziheng/SAM/MRDiffusion/trainsets/AMOS22CT/AMOS22CT_CT.jsonl' \
---test_jsonl '/mnt/hwfile/medai/zhaoziheng/SAM/MRDiffusion/testsets/AMOS22CT/AMOS22CT_CT.jsonl' \
---target_root '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/AMOS22_CT'
+# srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=0 --cpus-per-task=24 --mem-per-cpu=32G \
+# python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/preprocess_func.py \
+# --train_jsonl '/mnt/hwfile/medai/zhaoziheng/SAM/MRDiffusion/trainsets/AMOS22CT/AMOS22CT_CT.jsonl' \
+# --test_jsonl '/mnt/hwfile/medai/zhaoziheng/SAM/MRDiffusion/testsets/AMOS22CT/AMOS22CT_CT.jsonl' \
+# --target_root '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/AMOS22_CT_v3'
 
-srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=1 --cpus-per-task=24 --mem-per-cpu=32G -x SH-IDC1-10-140-1-[163],SH-IDC1-10-140-0-[222] \
-python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/train_dn_unet.py \
---train_domain_list_1 'ss' \
---train_domain_list_2 'sd' \
---n_classes 15 \
---batch_size 32 \
---n_epochs 100 \
---save_step 20 \
---lr 0.004 \
---gpu_ids 0 \
---result_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/results/AMOS22_CT' \
---data_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/AMOS22_CT' 
+# srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=1 --cpus-per-task=24 --mem-per-cpu=32G -x SH-IDC1-10-140-1-[163],SH-IDC1-10-140-0-[222] \
+# python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/train_dn_unet.py \
+# --train_domain_list_1 'ss' \
+# --train_domain_list_2 'sd' \
+# --n_classes 15 \
+# --batch_size 32 \
+# --n_epochs 100 \
+# --save_step 20 \
+# --lr 0.004 \
+# --gpu_ids 0 \
+# --result_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/results/AMOS22_CT_v2' \
+# --data_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/AMOS22_CT_v2' 
         
-# tranfer to AMOS22_CT
+# # tranfer to AMOS22_CT
         
-srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=1 --cpus-per-task=24 --mem-per-cpu=32G -x SH-IDC1-10-140-1-[163],SH-IDC1-10-140-0-[222] \
-python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/test_dn_unet.py \
---data_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/AMOS22_CT' \
---n_classes 15 \
---test_domain_list '' \
---model_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/results/AMOS22_CT/model' \
---pred_label_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset950_AMOS22CT_PNG/labelsPred_from_DualNorm_AMOS22_CT' \
---input_image_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset950_AMOS22CT_PNG/imageTs_from_DualNorm_AMOS22_CT' \
---batch_size 32 \
---gpu_ids 0
+# srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=1 --cpus-per-task=24 --mem-per-cpu=32G -x SH-IDC1-10-140-1-[163],SH-IDC1-10-140-0-[222] \
+# python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/test_dn_unet.py \
+# --data_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/AMOS22_CT' \
+# --n_classes 15 \
+# --test_domain_list '' \
+# --model_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/results/AMOS22_CT/model' \
+# --pred_label_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset950_AMOS22CT_PNG/labelsPred_from_DualNorm_AMOS22_CT' \
+# --input_image_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset950_AMOS22CT_PNG/imageTs_from_DualNorm_AMOS22_CT' \
+# --batch_size 32 \
+# --gpu_ids 0
 
-srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=0 --cpus-per-task=24 --mem-per-cpu=32G \
-python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/nnUNet-Related-Project/nnUNet-as-MRDiffusion-Baseline/evaluate/evaluate_nib.py \
---target_dataset 'AMOS22_CT' \
---source_dataset 'AMOS22_CT' \
---nnunet_name 'Dataset950_AMOS22CT_PNG' \
---gt_dir 'labelsTs' \
---seg_dir 'labelsPred_from_DualNorm_AMOS22_CT' \
---img_dir 'imageTs_from_DualNorm_AMOS22_CT' 
+# srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=0 --cpus-per-task=24 --mem-per-cpu=32G \
+# python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/nnUNet-Related-Project/nnUNet-as-MRDiffusion-Baseline/evaluate/evaluate_nib.py \
+# --target_dataset 'AMOS22_CT' \
+# --source_dataset 'AMOS22_CT' \
+# --nnunet_name 'Dataset950_AMOS22CT_PNG' \
+# --gt_dir 'labelsTs' \
+# --seg_dir 'labelsPred_from_DualNorm_AMOS22_CT' \
+# --img_dir 'imageTs_from_DualNorm_AMOS22_CT' 
         
 # tranfer to CHAOSMR_T2SPIR
         
-srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=1 --cpus-per-task=24 --mem-per-cpu=32G -x SH-IDC1-10-140-1-[163],SH-IDC1-10-140-0-[222] \
-python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/test_dn_unet.py \
---data_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/CHAOSMR_T2SPIR' \
---n_classes 15 \
---test_domain_list '' \
---model_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/results/AMOS22_CT/model' \
---pred_label_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset992_CHAOSMR_T2SPIR_PNG/labelsPred_from_DualNorm_AMOS22_CT' \
---input_image_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset992_CHAOSMR_T2SPIR_PNG/imageTs_from_DualNorm_AMOS22_CT' \
---batch_size 32 \
---gpu_ids 0
+# srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=1 --cpus-per-task=24 --mem-per-cpu=32G -x SH-IDC1-10-140-1-[163],SH-IDC1-10-140-0-[222] \
+# python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/test_dn_unet.py \
+# --data_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/data/CHAOSMR_T2SPIR' \
+# --n_classes 15 \
+# --test_domain_list '' \
+# --model_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/results/AMOS22_CT/model' \
+# --pred_label_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset992_CHAOSMR_T2SPIR_PNG/labelsPred_from_DualNorm_AMOS22_CT' \
+# --input_image_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset992_CHAOSMR_T2SPIR_PNG/imageTs_from_DualNorm_AMOS22_CT' \
+# --batch_size 32 \
+# --gpu_ids 0
 
-srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=0 --cpus-per-task=24 --mem-per-cpu=32G \
-python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/nnUNet-Related-Project/nnUNet-as-MRDiffusion-Baseline/evaluate/evaluate_nib.py \
---target_dataset 'CHAOSMR' \
---source_dataset 'AMOS22_CT' \
---nnunet_name 'Dataset992_CHAOSMR_T2SPIR_PNG' \
---gt_dir 'labelsTs' \
---seg_dir 'labelsPred_from_DualNorm_AMOS22_CT' \
---img_dir 'imageTs_from_DualNorm_AMOS22_CT' 
+# srun --quotatype=auto --partition=medai --ntasks=1 --nodes=1 --gpus-per-task=0 --cpus-per-task=24 --mem-per-cpu=32G \
+# python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/nnUNet-Related-Project/nnUNet-as-MRDiffusion-Baseline/evaluate/evaluate_nib.py \
+# --target_dataset 'CHAOSMR' \
+# --source_dataset 'AMOS22_CT' \
+# --nnunet_name 'Dataset992_CHAOSMR_T2SPIR_PNG' \
+# --gt_dir 'labelsTs' \
+# --seg_dir 'labelsPred_from_DualNorm_AMOS22_CT' \
+# --img_dir 'imageTs_from_DualNorm_AMOS22_CT' 
         
 # tranfer to CHAOSMR_T1
         
@@ -74,8 +74,8 @@ python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Nor
 --n_classes 15 \
 --test_domain_list '' \
 --model_dir '/mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/Dual-Normalization/results/AMOS22_CT/model' \
---pred_label_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset991_CHAOSMR_T1_PNG/labelsPred_from_DualNorm_AMOS22_CT' \
---input_image_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset991_CHAOSMR_T1_PNG/imageTs_from_DualNorm_AMOS22_CT' \
+--pred_label_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset991_CHAOSMR_T1_PNG/labelsPred_from_DualNorm_AMOS22_CT_v3' \
+--input_image_dir '/mnt/hwfile/medai/zhaoziheng/SAM/nnUNet_data/nnUNet_raw/Dataset991_CHAOSMR_T1_PNG/imageTs_from_DualNorm_AMOS22_CT_v3' \
 --batch_size 32 \
 --gpu_ids 0
 
@@ -85,5 +85,5 @@ python /mnt/petrelfs/zhaoziheng/Knowledge-Enhanced-Medical-Segmentation/nnUNet-R
 --source_dataset 'AMOS22_CT' \
 --nnunet_name 'Dataset991_CHAOSMR_T1_PNG' \
 --gt_dir 'labelsTs' \
---seg_dir 'labelsPred_from_DualNorm_AMOS22_CT' \
---img_dir 'imageTs_from_DualNorm_AMOS22_CT' 
+--seg_dir 'labelsPred_from_DualNorm_AMOS22_CT_v3' \
+--img_dir 'imageTs_from_DualNorm_AMOS22_CT_v3' 

@@ -178,10 +178,10 @@ if __name__ == '__main__':
                     output = model(sample_data, domain_label=domain_id*torch.ones(sample_data.shape[0], dtype=torch.long))
                     means, vars = get_bn_statis(model, domain_id)
                     new_dis = cal_distance(means, means_list[domain_id], vars, vars_list[domain_id])
-                    if new_dis < dis:
+                    if new_dis < dis or best_out == None:
                         best_out = output
                         dis = new_dis
-
+                
                 output = best_out
                 pred_y = output.cpu().detach().numpy()
                 pred_y = np.argmax(pred_y, axis=1)

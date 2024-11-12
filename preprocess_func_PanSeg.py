@@ -10,6 +10,9 @@ from torchvision import transforms
 import monai
 from einops import rearrange, repeat, reduce
 import cv2
+import random
+
+import matplotlib.pyplot as plt
 
 class Loader_Wrapper():
     """
@@ -416,7 +419,15 @@ def resize_image_itk(itkimage, newSize, resamplemethod=sitk.sitkNearestNeighbor)
 def save_img(slice, label, dir):
     np.savez_compressed(dir, image=slice, label=label)
 
-def norm(slices):
+def norm(slices, modality):
+    
+    if modality == 'CT':
+        lower_bound, upper_bound = -500, 1000
+        slices = np.clip(slices, lower_bound, upper_bound)
+    else:
+        lower_bound, upper_bound = np.percentile(slices, 1), np.percentile(slices, 99)
+        slices = np.clip(slices, lower_bound, upper_bound)
+    
     max = np.max(slices)
     min = np.min(slices)
     slices = 2 * (slices - min) / (max - min) - 1
@@ -472,8 +483,13 @@ def save_test_npz(modality='T2'):
 
     if not os.path.exists(os.path.join(target_root, 'test')):
         os.makedirs(os.path.join(target_root, 'test'))
+    
+    # TODO: to calculate FID, wont use in training or testing    
+    if not os.path.exists(os.path.join(target_root, 'visual_all_sd')):
+        os.makedirs(os.path.join(target_root, 'visual_all_sd'))
+    #
 
-    for datum_dict in test_data:
+    for datum_dict in tqdm(test_data):
         image_path = datum_dict['image_path']   # xxxx/AHN_0004_0000_0.png
         volume_id, slice_id = image_path.split('/')[-1].split('_0000_')
         slice_id = slice_id.replace('.png', '')
@@ -482,8 +498,17 @@ def save_test_npz(modality='T2'):
         # process image
         
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        image = norm(image) 
+        image = norm(image, modality) 
+        image, nonlinear_image = nonlinear_transformation(image)
         image = resize_with_padding(image, target_size=512, nearest_mode=False)
+        nonlinear_image = resize_with_padding(nonlinear_image, target_size=512, nearest_mode=False)
+        
+        # TODO: to calculate FID, wont use in training or testing
+        # Save tmp_nonlinear_slice
+        visualize_nonlinear_slice = (nonlinear_image + 1)/2 # [0,1]
+        visualize_nonlinear_slice = visualize_nonlinear_slice * 255
+        cv2.imwrite(os.path.join(target_root, 'visual_all_sd', f'{volume_id}_s{slice_id}_nonlinear.png'), visualize_nonlinear_slice)
+        #
         
         # process mask
         
@@ -506,6 +531,10 @@ def prepare_train(modality='T2'):
         os.makedirs(os.path.join(target_root, 'train/ss'))
     if not os.path.exists(os.path.join(target_root, 'train/sd')):
         os.makedirs(os.path.join(target_root, 'train/sd'))
+    if not os.path.exists(os.path.join(target_root, 'visual_all_sd')):
+        os.makedirs(os.path.join(target_root, 'visual_all_sd'))    
+    if not os.path.exists(os.path.join(target_root, 'visual_all_ss')):
+        os.makedirs(os.path.join(target_root, 'visual_all_ss'))    
             
     for datum_dict in train_data:
         image_path = datum_dict['image_path']   # xxxx/AHN_0004_0000_0.png
@@ -516,7 +545,7 @@ def prepare_train(modality='T2'):
         # process image
         
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        image = norm(image) 
+        image = norm(image, modality) 
         image, nonlinear_image = nonlinear_transformation(image)
         image = resize_with_padding(image, target_size=512, nearest_mode=False)
         nonlinear_image = resize_with_padding(nonlinear_image, target_size=512, nearest_mode=False)
@@ -527,6 +556,17 @@ def prepare_train(modality='T2'):
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         mask = resize_with_padding(mask, target_size=512, nearest_mode=True)
         mask = np.where(mask>0, 1, 0)
+        
+        if random.random() < 1:   # randomly visualization
+                
+            visualize_slice = (image + 1)/2 # [0,1]
+            visualize_slice = visualize_slice * 255
+            cv2.imwrite(os.path.join(target_root, 'visual_all_ss', f'{volume_id}_s{slice_id}.png'), visualize_slice)
+
+            # Save tmp_nonlinear_slice
+            visualize_nonlinear_slice = (nonlinear_image + 1)/2 # [0,1]
+            visualize_nonlinear_slice = visualize_nonlinear_slice * 255
+            cv2.imwrite(os.path.join(target_root, 'visual_all_sd', f'{volume_id}_s{slice_id}_nonlinear.png'), visualize_nonlinear_slice)
         
         """
         Source-Similar
